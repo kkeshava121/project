@@ -1,41 +1,52 @@
-name: SSH into Server and Run ls
+name: fiest CICD for nginx 
 
 on:
   push:
     branches:
-      - main
+      - 'main'
 
 jobs:
-  ssh:
+  docker:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Get Github action IP
+      -
+        name: Checkout
+        uses: actions/checkout@v3
+      -
+        name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+          
+      - 
+        name: Get Github action IP
         id: ip
-        uses: haythem/public-ip@v1.2	
-      - name: Allow access on port 22
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-
-      - name: Get GitHub Actions runner IP range
-        id: runner-ip
+        uses: haythem/public-ip@v1.2
+        
+      - 
+        name: Add Github Actions IP to Security group
         run: |
-          echo "::set-output name=runner_ip::$(curl -s https://api.github.com/meta | jq -r '.actions[].cidr')"
-
-      - name: Update security group
-        run: aws ec2 authorize-security-group-ingress --group-id sg-0cd689dcb7ac12a2b --protocol tcp --port 22 --cidr ${{ steps.ip.outputs.ipv4 }}/32
-
-      - name: SSH into Server
+          aws ec2 authorize-security-group-ingress --group-name ${{ secrets.AWS_SG_NAME }} --protocol tcp --port 22 --cidr ${{ steps.ip.outputs.ipv4 }}/32    
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+        
+      - 
+        name: Deploy to replica server
         uses: appleboy/ssh-action@master
         with:
           host: 3.136.116.231
           username: ubuntu
           key: ${{ secrets.SSH_KEY }}
           script: |
-            ls -la
-
-      - name: Revoke access on port 22
-        run: aws ec2 revoke-security-group-ingress --group-id sg-0cd689dcb7ac12a2b --protocol tcp --port 22 --cidr ${{ steps.ip.outputs.ipv4 }}/32
+            ls -la 
+              
+      - 
+        name: Remove Github Actions IP from security group
+        run: |
+          aws ec2 revoke-security-group-ingress --group-name ${{ secrets.AWS_SG_NAME }} --protocol tcp --port 22 --cidr ${{ steps.ip.outputs.ipv4 }}/32
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+        if: always()
+      
