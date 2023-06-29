@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+name: SSH into Server and Run ls
 
 on:
   push:
@@ -6,14 +6,15 @@ on:
       - main
 
 jobs:
-  deploy:
+  ssh:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
-
-    - name: Deploy to Nginx
-      run: |
-        sudo cp -R ./* /var/www/html/
-        sudo service nginx restart
+      - name: SSH into Server
+        uses: appleboy/ssh-action@master
+        with:
+          host: 3.136.116.231
+          username: ubuntu
+          key: ${{ SSH_KEY }}
+          script: |
+            ls -la
