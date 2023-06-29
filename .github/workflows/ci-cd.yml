@@ -10,6 +10,24 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Get Github action IP
+        id: ip
+        uses: haythem/public-ip@v1.2	
+      - name: Allow access on port 22
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Get GitHub Actions runner IP range
+        id: runner-ip
+        run: |
+          echo "::set-output name=runner_ip::$(curl -s https://api.github.com/meta | jq -r '.actions[].cidr')"
+
+      - name: Update security group
+        run: aws ec2 authorize-security-group-ingress --group-id sg-0cd689dcb7ac12a2b --protocol tcp --port 22 --cidr ${{ steps.ip.outputs.ipv4 }}/32
+
       - name: SSH into Server
         uses: appleboy/ssh-action@master
         with:
@@ -18,3 +36,6 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           script: |
             ls -la
+
+      - name: Revoke access on port 22
+        run: aws ec2 revoke-security-group-ingress --group-id sg-0cd689dcb7ac12a2b --protocol tcp --port 22 --cidr ${{ steps.ip.outputs.ipv4 }}/32
