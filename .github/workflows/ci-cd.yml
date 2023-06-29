@@ -15,5 +15,5 @@ jobs:
 
     - name: Deploy to Nginx
       run: |
-        sudo cp -R ./* /var/www/html/project/
+        sudo cp -R ./* /var/www/html/
         sudo service nginx restart
