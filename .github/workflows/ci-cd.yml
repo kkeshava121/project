@@ -1,19 +1,52 @@
-name: CI/CD Pipeline
+name: fiest CICD for nginx 
 
 on:
   push:
     branches:
-      - main
+      - 'main'
 
 jobs:
-  deploy:
+  docker:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
-
-    - name: Deploy to Nginx
-      run: |
-        sudo cp -R ./* /var/www/html/
-        sudo service nginx restart
+      -
+        name: Checkout
+        uses: actions/checkout@v3
+      -
+        name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+          
+      - 
+        name: Get Github action IP
+        id: ip
+        uses: haythem/public-ip@v1.3
+        
+      - 
+        name: Add Github Actions IP to Security group
+        run: |
+          aws ec2 authorize-security-group-ingress --group-name ${{ secrets.AWS_SG_NAME }} --protocol tcp --port 22 --cidr ${{ steps.ip.outputs.ipv4 }}/32    
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+        
+      - 
+        name: Deploy to replica server
+        uses: appleboy/ssh-action@master
+        with:
+          host: 3.136.116.231
+          username: ubuntu
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            ls -la 
+              
+      - 
+        name: Remove Github Actions IP from security group
+        run: |
+          aws ec2 revoke-security-group-ingress --group-name ${{ secrets.AWS_SG_NAME }} --protocol tcp --port 22 --cidr ${{ steps.ip.outputs.ipv4 }}/32
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+        if: always()
+      
